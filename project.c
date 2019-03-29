@@ -1,17 +1,17 @@
 #define RESOLUTION_X 320
 #define RESOLUTION_Y 240
 
-#define TILE_WIDTH     90      // think of this  -> technically make it 320/3. ~~ 106pixels
+#define TILE_WIDTH  90      // think of this  -> technically make it 320/3. ~~ 106pixels
 #define TILE_HEIGHT 60      // 4 rows per display
 
-#define TILES_PER_ROW 3
-#define ROWS_PER_COL 4
+#define COLS 3
+#define ROWS 4
 
 // define black as 1, white as 0
 #define BLACK 1
 #define WHITE 0
 
-// generates 0, 1, 2, ... TILES_PER_ROW-1 -> left ->center -> right col
+// generates 0, 1, 2, ... COLS-1 -> left ->center -> right col
 
 #include <stdlib.h>
 
@@ -21,7 +21,7 @@ volatile int pixel_buffer_start;                               // global variabl
 
 //bool gameOver;                                                  // global variable corresponding to the state of the game
 int score;                                                      // score that will be displayed on VGA
-int visibleGrid[ROWS_PER_COL][TILES_PER_ROW];                  //
+int visibleGrid[ROWS][COLS];                  //
 
 // Display related functions:
 void wait_for_vsync();
@@ -74,6 +74,10 @@ int main(void){
     
     generateGrid();
     drawGrid();
+    while(1){
+        updateGrid();
+        drawGrid();
+    }
     //wait_for_vsync();
 }
 
@@ -108,17 +112,17 @@ void drawTile(int x, int y, short int line_color){
 
 void generateRow(int rowNumber){
     // only one black tile per row
-    int indexForBlackTile = rand()%(TILES_PER_ROW); // must do srand
-    // generates 0, 1, 2, ... TILES_PER_ROW-1 -> left ->center -> right col
+    int indexForBlackTile = rand()%(COLS); // must do srand
+    // generates 0, 1, 2, ... COLS-1 -> left ->center -> right col
     visibleGrid[rowNumber][indexForBlackTile] = BLACK;
     // need to place a white tile in the other two tiles
-    for(int i = 0; i < TILES_PER_ROW; i++)
+    for(int i = 0; i < COLS; i++)
         if(i != indexForBlackTile)
             visibleGrid[rowNumber][i] = WHITE;
 }
 
 void generateGrid(){
-    for(int j = 0; j < ROWS_PER_COL; j++){
+    for(int j = 0; j < ROWS; j++){
         generateRow(j);
     }
 }
@@ -126,11 +130,22 @@ void generateGrid(){
 //assume the func is called when the user presses the RIGHT key
 void updateGrid(){
     // first must shift change
+    for(int i = ROWS-2; i >= 0; i--){
+        for(int j = 0; j < COLS; j++){
+            // shift everything one row below
+            visibleGrid[i+1][j] = visibleGrid[i][j];
+        }
+    }
+    // update the top-most row
+    generateRow(0);
+    // remove the last row
+    // shift everything downwards
+    // generate row for first row and place
 }
 
 void drawGrid(){
-    for (int i = 0; i < ROWS_PER_COL; i++){                // rows_per_col is the total number of rows
-        for(int j = 0; j < TILES_PER_ROW; j++){            // tile_per_row is the total number of tiles in each row
+    for (int i = 0; i < ROWS; i++){                // ROWS is the total number of rows
+        for(int j = 0; j < COLS; j++){            // tile_per_row is the total number of tiles in each row
             short int TILE_COLOR = (visibleGrid[i][j] == BLACK) ? PIANO_TILE_COLOR : BLANK_TILE_COLOR;
             drawTile(j*TILE_WIDTH, i*TILE_HEIGHT, TILE_COLOR);
         }
