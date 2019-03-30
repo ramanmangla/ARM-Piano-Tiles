@@ -28,6 +28,7 @@ void wait_for_vsync();
 void plot_pixel(int x, int y, short int line_color);
 void clear_screen();
 void drawRectangle(int x, int y, short int line_color);
+void updateScreen();
 
 // setting grid,
 void generateRow(int rowNumber);
@@ -70,15 +71,24 @@ int main(void){
     
     pixel_buffer_start = *(pixel_ctrl_ptr+1); // we draw on the back buffer
     clear_screen(); // pixel_buffer_start points to the pixel buffer
-    wait_for_vsync();
     
+    updateScreen();
+    // initialize grid
     generateGrid();
     drawGrid();
+    
     while(1){
         updateGrid();
         drawGrid();
+        updateScreen();
     }
     //wait_for_vsync();
+}
+
+void updateScreen(){
+    volatile int * pixel_ctrl_ptr = (int *)0xFF203020;
+    wait_for_vsync(); // swap front and back buffers on VGA vertical sync
+    pixel_buffer_start = *(pixel_ctrl_ptr + 1); // new back buffer
 }
 
 void wait_for_vsync(){
@@ -163,3 +173,12 @@ void drawGrid(){
 // therefore, the screen seems to move more quickly
 // this value can be access constantly to determine how much the screen should be shifted upwards
 // to give smooth animation feel, instead of a discrete movement -> moving one tile at a time
+
+
+// for sound need to play a chord/note everytime a black key is pressed
+// idea for that: load separate mp3 files for each chord,
+// store all ptrs to these files in an array in order that's supposed to be played
+// have a global variable that is used to access the next note to play
+// when a key is pressed that note is played
+// and global variable is incremented
+// when reached last note, reset varialble to 0
