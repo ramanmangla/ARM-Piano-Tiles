@@ -1,7 +1,7 @@
 #define RESOLUTION_X 320
 #define RESOLUTION_Y 240
 
-#define TILE_WIDTH  90      // think of this  -> technically make it 320/3. ~~ 106pixels
+#define TILE_WIDTH  106      // think of this  -> technically make it 320/3. ~~ 106pixels
 #define TILE_HEIGHT 60      // 4 rows per display
 
 #define COLS 3
@@ -15,7 +15,7 @@
 
 #include <stdlib.h>
 
-const short int PIANO_TILE_COLOR = 0x6666;                    // black
+const short int PIANO_TILE_COLOR = 0x0000;                    // black
 const short int BLANK_TILE_COLOR = 0xFFFF;                    // white
 volatile int pixel_buffer_start;                               // global variable
 
@@ -26,15 +26,21 @@ int visibleGrid[ROWS][COLS];                  //
 // Display related functions:
 void wait_for_vsync();
 void plot_pixel(int x, int y, short int line_color);
-void clear_screen();
-void drawRectangle(int x, int y, short int line_color);
-void updateScreen();
 
-// setting grid,
+void drawRectangle(int x, int y, short int line_color);
+
+void initializeScreen();
+void updateScreen();
+void clear_screen();
+
+// setting grid to display,
 void generateRow(int rowNumber);
 void generateGrid();
 void drawGrid();
 void updateGrid();
+
+// access data from KEYs
+int keyPressed();
 
 int main(void){
     // game starts with start page which says "press any key to start"
@@ -51,8 +57,21 @@ int main(void){
     
     // for now assume only three tiles per row
     // must ENSURE that when grid is updated, it looks smooth
+    initializeScreen();
+    updateScreen();
+    // initialize grid
+    generateGrid();
+    drawGrid();
     
-    
+    while(1){
+        updateGrid();
+        drawGrid();
+        updateScreen();
+    }
+    //wait_for_vsync();
+}
+
+void initializeScreen(){
     volatile int * pixel_ctrl_ptr = (int *)0xFF203020;
     // declare other variables(not shown)
     // initialize location and direction of rectangles(not shown)
@@ -71,18 +90,6 @@ int main(void){
     
     pixel_buffer_start = *(pixel_ctrl_ptr+1); // we draw on the back buffer
     clear_screen(); // pixel_buffer_start points to the pixel buffer
-    
-    updateScreen();
-    // initialize grid
-    generateGrid();
-    drawGrid();
-    
-    while(1){
-        updateGrid();
-        drawGrid();
-        updateScreen();
-    }
-    //wait_for_vsync();
 }
 
 void updateScreen(){
@@ -182,3 +189,9 @@ void drawGrid(){
 // when a key is pressed that note is played
 // and global variable is incremented
 // when reached last note, reset varialble to 0
+
+// depending on which key is pressed, 0,1,2,3 returns the corresponding integer value
+int keyPressed(){
+    
+    
+}
