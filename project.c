@@ -1,7 +1,7 @@
 #define RESOLUTION_X 320
 #define RESOLUTION_Y 240
 
-#define TILE_WIDTH  106      // think of this  -> technically make it 320/3. ~~ 106pixels
+#define TILE_WIDTH  60      // think of this  -> technically make it 320/3. ~~ 106pixels
 #define TILE_HEIGHT 60      // 4 rows per display
 
 #define COLS 3
@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 const short int PIANO_TILE_COLOR = 0x0000;                    // black
 const short int BLANK_TILE_COLOR = 0xFFFF;                    // white
@@ -30,8 +31,7 @@ int score;  // Stroe user's score
 // Display related functions:
 void wait_for_vsync();
 void plot_pixel(int x, int y, short int line_color);
-
-void drawRectangle(int x, int y, short int line_color);
+void draw_line(int x0, int y0, int x1, int y1, short int color);
 
 void initializeScreen();
 void updateScreen();
@@ -139,7 +139,7 @@ void clear_screen(){
     int x, y;
     for(x = 0; x < RESOLUTION_X; x++)
         for(y = 0; y < RESOLUTION_Y; y++)
-            plot_pixel(x,y,0x0000); // 0x0 is black
+            plot_pixel(x,y,0xFeA4); // 0x0 is black
 }
 
 void drawTile(int x, int y, short int line_color){
@@ -199,12 +199,25 @@ void updateGrid(){
 }
 
 void drawGrid(){
+    int offset_x = (RESOLUTION_X - (TILE_WIDTH * COLS)) / 2;
+    draw_line(offset_x - 2, 0, offset_x - 2, RESOLUTION_Y - 1, 0x0000);
+    draw_line(COLS*TILE_WIDTH + offset_x + 2, 0, COLS*TILE_WIDTH + offset_x + 2, RESOLUTION_Y - 1, 0x0000);
+    
     for (int i = 0; i < ROWS; i++){                // ROWS is the total number of rows
         for(int j = 0; j < COLS; j++){            // tile_per_row is the total number of tiles in each row
             short int TILE_COLOR = (visibleGrid[i][j] == BLACK) ? PIANO_TILE_COLOR : BLANK_TILE_COLOR;
-            drawTile(j*TILE_WIDTH, i*TILE_HEIGHT, TILE_COLOR);
+            drawTile(j*TILE_WIDTH + offset_x, i*TILE_HEIGHT, TILE_COLOR);
+            draw_line(offset_x + j*TILE_WIDTH, 0, offset_x + j*TILE_WIDTH, RESOLUTION_Y - 1, 0x0000);
         }
+        draw_line(offset_x, i*TILE_HEIGHT, COLS*TILE_WIDTH + offset_x, i*TILE_HEIGHT, 0x0000);
     }
+    
+    draw_line(offset_x + COLS*TILE_WIDTH + 1, 0, offset_x + COLS*TILE_WIDTH + 1, RESOLUTION_Y - 1, 0x0000);
+    draw_line(offset_x + COLS*TILE_WIDTH, 0, offset_x + COLS*TILE_WIDTH, RESOLUTION_Y - 1, 0x0000);
+
+    draw_line(offset_x - 1, 0, offset_x - 1, RESOLUTION_Y - 1, 0x0000);
+
+
 }
 // bool checkValidMove(int key_value){
 //     if(visibleGrid[0][key_value] == BLACK)            // hit the right key
@@ -303,3 +316,52 @@ void HEXUpdate() {
     // Set HEX 3-0 value
     (*HEX3_0Ptr) = HEXValue;
  }
+
+ // Function to swap values
+ void swap(int* x, int* y) {
+    int temp = *x;
+    *x = *y;
+    *y = temp;
+ }
+
+// Function to draw line
+void draw_line(int x0, int y0, int x1, int y1, short int color) {
+    bool is_steep = abs(y1 - y0) > abs(x1 - x0);
+
+    if(is_steep) {
+        swap(&x0, &y0);
+        swap(&x1, &y1);
+    }
+
+    if(x0 > x1) {
+        swap(&x0, &x1);
+        swap(&y0, &y1);
+    }
+
+    int deltax = x1 - x0;
+    int deltay = abs(y1 - y0);
+    int error = -(deltax / 2);
+    int y = y0;
+    int y_step;
+
+    if(y0 < y1) {
+        y_step = 1;
+    } else {
+        y_step = -1;
+    }
+
+    for(int x = x0; x <= x1; x++) {
+        if(is_steep) {
+            plot_pixel(y, x, color);
+        } else {
+            plot_pixel(x, y, color);
+        }
+
+        error += deltay;
+
+        if(error >= 0) {
+            y = y + y_step;
+            error -= deltax;
+        }
+    }
+}
