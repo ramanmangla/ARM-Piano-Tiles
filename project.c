@@ -14,6 +14,8 @@
 // generates 0, 1, 2, ... COLS-1 -> left ->center -> right col
 
 #include <stdlib.h>
+#include <math.h>
+#include <stdio.h>
 
 const short int PIANO_TILE_COLOR = 0x0000;                    // black
 const short int BLANK_TILE_COLOR = 0xFFFF;                    // white
@@ -46,6 +48,7 @@ int keyPressed();
 
 // Reset game
 void resetGame();
+void HEXUpdate();
 
 int main(void){
     // game starts with start page which says "press any key to start"
@@ -63,23 +66,19 @@ int main(void){
     // for now assume only three tiles per row
     // must ENSURE that when grid is updated, it looks smooth
     volatile int* keys_ptr = (int*) 0xFF20005C;
-    int* HEX3_0Ptr = (int*) 0xFF200020;
-
-    int HEXDigits[10] = {0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110,
-                        0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111};
 
 x:  score = 0;
+    // What are these functions doing ?????????
     initializeScreen();
     updateScreen();
     // initialize grid
     generateGrid();
-    drawGrid();
  
-    while(1){
+    while(1) {
         updateGrid();
         drawGrid();
         updateScreen();
-        *HEX3_0Ptr = HEXDigits[score % 10];
+        HEXUpdate();
 
         while((*keys_ptr) == 0x0);
         
@@ -229,30 +228,37 @@ void drawGrid(){
 // and global variable is incremented
 // when reached last note, reset varialble to 0
 
-// depending on which key is pressed, 0,1,2,3 returns the corresponding integer value
+// Function to determine game state according to key pressed
+// and updat eglobal variables accordingly
 int keyPressed(){
+    // Key edge capture register address
     volatile int* edgeCapture = (int *) 0xFF20005C;
+    // Key pressed
     int key = -1;
     
     if((*edgeCapture) == 8) {
-        key = 1;
+        key = 1;    // KEY3
     } else if ((*edgeCapture) == 4) {
-        key = 2;
+        key = 2;    // KEY2
     } else if((*edgeCapture) == 2) {
-        key = 3;
+        key = 3;    // KEY1
     } else if((*edgeCapture) == 1) {
-        key = 0;
+        key = 0;    // KEY0
     }
     
+    // Reset edge capture register
     *edgeCapture = *edgeCapture;
     
     if(key == 0) {
+        // If reset key pressed
         resetGame();
         return 0;
     } else if(key == correctColumn + 1) {
+        // If correct key pressed
         score += 1;
         return 1;
     } else {
+        // If wrong key or illegal key combination pressed
         //gameOver();
         return -1;
     }
@@ -268,3 +274,32 @@ void resetGame() {
     updateScreen();
 }
 
+// Function to display score on HEX 3-0
+void HEXUpdate() {
+    // HEX 3-0 location pointer
+    int* HEX3_0Ptr = (int*) 0xFF200020;
+    // HEX Register Value to be stored at HEX 3-0 location
+    int HEXValue = 0;
+    // Temporary score variable
+    int temp = score;
+    // Storing HEX individual digits
+    int HEXDigits[4];
+    // HEX Codes for decimal digits
+    int HEXCodes[10] = {0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110,
+                        0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111};
+
+    // Extracting HEX digits into HEX array
+    for(int i = 0; i < 4; i++) {
+        HEXDigits[i] = temp % 10;
+        temp = temp / 10;
+    }
+
+    // Determining HEX register value using bit codes
+    for(int i = 3; i >= 0; i--) {
+        HEXValue *= 256; // Logical shift left by 8 bits
+        HEXValue += HEXCodes[HEXDigits[i]];
+    }
+
+    // Set HEX 3-0 value
+    (*HEX3_0Ptr) = HEXValue;
+ }
