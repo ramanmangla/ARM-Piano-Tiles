@@ -21,7 +21,9 @@ volatile int pixel_buffer_start;                               // global variabl
 
 //bool gameOver;                                                  // global variable corresponding to the state of the game
 int score;                                                      // score that will be displayed on VGA
-int visibleGrid[ROWS][COLS];                  //
+int visibleGrid[ROWS][COLS];                 //
+int correctColumn;  // Store the next column key to press in the game
+int score;  // Stroe user's score
 
 // Display related functions:
 void wait_for_vsync();
@@ -42,6 +44,9 @@ void updateGrid();
 // access data from KEYs
 int keyPressed();
 
+// Reset game
+void resetGame();
+
 int main(void){
     // game starts with start page which says "press any key to start"
     // then the timer starts when the first (correct) key is pressed
@@ -57,16 +62,34 @@ int main(void){
     
     // for now assume only three tiles per row
     // must ENSURE that when grid is updated, it looks smooth
+    volatile int* keys_ptr = (int*) 0xFF20005C;
+    int* HEX3_0Ptr = (int*) 0xFF200020;
+
+    int HEXDigits[10] = {0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110,
+                        0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111};
+
+x:  score = 0;
     initializeScreen();
     updateScreen();
     // initialize grid
     generateGrid();
     drawGrid();
-    
+ 
     while(1){
         updateGrid();
         drawGrid();
         updateScreen();
+        *HEX3_0Ptr = HEXDigits[score % 10];
+
+        while((*keys_ptr) == 0x0);
+        
+        int response = keyPressed();
+
+        if(response == 0) {
+            goto x;
+        } else if(response == -1) {
+            break;
+        }
     }
     //wait_for_vsync();
 }
@@ -142,6 +165,14 @@ void generateGrid(){
     for(int j = 0; j < ROWS; j++){
         generateRow(j);
     }
+
+    // Get correct column key to press
+    for(int j = 0; j < COLS; j++) {
+        if(visibleGrid[ROWS-1][j] == BLACK) {
+            correctColumn = j;
+            break;
+        }
+    }
 }
 
 //assume the func is called when the user presses the RIGHT key
@@ -158,6 +189,14 @@ void updateGrid(){
     // remove the last row
     // shift everything downwards
     // generate row for first row and place
+
+    // Get correct column key to press
+    for(int j = 0; j < COLS; j++) {
+        if(visibleGrid[ROWS-1][j] == BLACK) {
+            correctColumn = j;
+            break;
+        }
+    }
 }
 
 void drawGrid(){
@@ -192,6 +231,40 @@ void drawGrid(){
 
 // depending on which key is pressed, 0,1,2,3 returns the corresponding integer value
 int keyPressed(){
+    volatile int* edgeCapture = (int *) 0xFF20005C;
+    int key = -1;
     
+    if((*edgeCapture) == 8) {
+        key = 1;
+    } else if ((*edgeCapture) == 4) {
+        key = 2;
+    } else if((*edgeCapture) == 2) {
+        key = 3;
+    } else if((*edgeCapture) == 1) {
+        key = 0;
+    }
     
+    *edgeCapture = *edgeCapture;
+    
+    if(key == 0) {
+        resetGame();
+        return 0;
+    } else if(key == correctColumn + 1) {
+        score += 1;
+        return 1;
+    } else {
+        //gameOver();
+        return -1;
+    }
 }
+
+void resetGame() {
+    for(int i = 0; i < ROWS; i++){
+        for(int j = 0; j < COLS; j++){
+            visibleGrid[i][j] = WHITE;
+        }
+    }
+    drawGrid();
+    updateScreen();
+}
+
