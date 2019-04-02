@@ -1,11 +1,11 @@
 #define RESOLUTION_X 320
 #define RESOLUTION_Y 240
 
-#define TILE_WIDTH  60      // think of this  -> technically make it 320/3. ~~ 106pixels
-#define TILE_HEIGHT 60      // 4 rows per display
-
 #define COLS 3
-#define ROWS 4
+#define ROWS 5
+    
+#define TILE_WIDTH  50      // think of this  -> technically make it 320/3. ~~ 106pixels
+#define TILE_HEIGHT (RESOLUTION_Y / ROWS)      // 4 rows per display
 
 // define black as 1, white as 0
 #define BLACK 1
@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-const short int PIANO_TILE_COLOR = 0x0000;                    // black
+const short int PIANO_TILE_COLOR = 0x0821;                    // black
 const short int BLANK_TILE_COLOR = 0xFFFF;                    // white
 volatile int pixel_buffer_start;                               // global variable
 
@@ -199,25 +199,31 @@ void updateGrid(){
 }
 
 void drawGrid(){
+    // Center offset
     int offset_x = (RESOLUTION_X - (TILE_WIDTH * COLS)) / 2;
+    // Vertical lines on both sides of the playing grid
     draw_line(offset_x - 2, 0, offset_x - 2, RESOLUTION_Y - 1, 0x0000);
     draw_line(COLS*TILE_WIDTH + offset_x + 2, 0, COLS*TILE_WIDTH + offset_x + 2, RESOLUTION_Y - 1, 0x0000);
+    draw_line(offset_x + COLS*TILE_WIDTH + 1, 0, offset_x + COLS*TILE_WIDTH + 1, RESOLUTION_Y - 1, 0x0000);
+    draw_line(offset_x + COLS*TILE_WIDTH, 0, offset_x + COLS*TILE_WIDTH, RESOLUTION_Y - 1, 0x0000);
     
     for (int i = 0; i < ROWS; i++){                // ROWS is the total number of rows
         for(int j = 0; j < COLS; j++){            // tile_per_row is the total number of tiles in each row
             short int TILE_COLOR = (visibleGrid[i][j] == BLACK) ? PIANO_TILE_COLOR : BLANK_TILE_COLOR;
+            // Next key to be pressed in green colour
+            TILE_COLOR = ((i == ROWS - 1) && j == correctColumn) ? 0x23E1 : TILE_COLOR;
+
             drawTile(j*TILE_WIDTH + offset_x, i*TILE_HEIGHT, TILE_COLOR);
+            // Vertical grid line
             draw_line(offset_x + j*TILE_WIDTH, 0, offset_x + j*TILE_WIDTH, RESOLUTION_Y - 1, 0x0000);
         }
+
+        // Horizontal grid line
         draw_line(offset_x, i*TILE_HEIGHT, COLS*TILE_WIDTH + offset_x, i*TILE_HEIGHT, 0x0000);
     }
-    
-    draw_line(offset_x + COLS*TILE_WIDTH + 1, 0, offset_x + COLS*TILE_WIDTH + 1, RESOLUTION_Y - 1, 0x0000);
-    draw_line(offset_x + COLS*TILE_WIDTH, 0, offset_x + COLS*TILE_WIDTH, RESOLUTION_Y - 1, 0x0000);
 
+    // Last vertical grid line
     draw_line(offset_x - 1, 0, offset_x - 1, RESOLUTION_Y - 1, 0x0000);
-
-
 }
 // bool checkValidMove(int key_value){
 //     if(visibleGrid[0][key_value] == BLACK)            // hit the right key
