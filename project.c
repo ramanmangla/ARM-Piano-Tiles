@@ -84,10 +84,11 @@ x:  score = 0;
         updateGrid();
         drawGrid();
         updateScreen();
-        HEXUpdate();
+        HEXScoreUpdate();
+        HEXTimerUpdate();
         displayChar(0, 0, 'V');
-
-        for(int i = 0; i < 4; i++) {
+        int i;
+        for(i = 0; i < 4; i++) {
             timer[i] = 0;
         }
 
@@ -169,8 +170,9 @@ void clear_screen(){
 
 void drawTile(int x, int y, short int line_color){
     // x and y define the TOP-LEFT corner of the tile
-    for(int i = 0; i < TILE_WIDTH; i++)
-        for (int j = 0; j < TILE_HEIGHT; j++)
+    int i, j;
+    for(i = 0; i < TILE_WIDTH; i++)
+        for (j = 0; j < TILE_HEIGHT; j++)
             plot_pixel(x+i, y+j, line_color);
 }
 
@@ -180,18 +182,20 @@ void generateRow(int rowNumber){
     // generates 0, 1, 2, ... COLS-1 -> left ->center -> right col
     visibleGrid[rowNumber][indexForBlackTile] = BLACK;
     // need to place a white tile in the other two tiles
-    for(int i = 0; i < COLS; i++)
+    int i;
+    for(i = 0; i < COLS; i++)
         if(i != indexForBlackTile)
             visibleGrid[rowNumber][i] = WHITE;
 }
 
 void generateGrid(){
-    for(int j = 0; j < ROWS; j++){
+    int j;
+    for(j = 0; j < ROWS; j++){
         generateRow(j);
     }
 
     // Get correct column key to press
-    for(int j = 0; j < COLS; j++) {
+    for(j = 0; j < COLS; j++) {
         if(visibleGrid[ROWS-1][j] == BLACK) {
             correctColumn = j;
             break;
@@ -202,8 +206,9 @@ void generateGrid(){
 //assume the func is called when the user presses the RIGHT key
 void updateGrid(){
     // first must shift change
-    for(int i = ROWS-2; i >= 0; i--){
-        for(int j = 0; j < COLS; j++){
+    int i,j;
+    for(i = ROWS-2; i >= 0; i--){
+        for(j = 0; j < COLS; j++){
             // shift everything one row below
             visibleGrid[i+1][j] = visibleGrid[i][j];
         }
@@ -215,7 +220,7 @@ void updateGrid(){
     // generate row for first row and place
 
     // Get correct column key to press
-    for(int j = 0; j < COLS; j++) {
+    for(j = 0; j < COLS; j++) {
         if(visibleGrid[ROWS-1][j] == BLACK) {
             correctColumn = j;
             break;
@@ -231,9 +236,9 @@ void drawGrid(){
     draw_line(COLS*TILE_WIDTH + offset_x + 2, 0, COLS*TILE_WIDTH + offset_x + 2, RESOLUTION_Y - 1, 0x0000);
     draw_line(offset_x + COLS*TILE_WIDTH + 1, 0, offset_x + COLS*TILE_WIDTH + 1, RESOLUTION_Y - 1, 0x0000);
     draw_line(offset_x + COLS*TILE_WIDTH, 0, offset_x + COLS*TILE_WIDTH, RESOLUTION_Y - 1, 0x0000);
-    
-    for (int i = 0; i < ROWS; i++){                // ROWS is the total number of rows
-        for(int j = 0; j < COLS; j++){            // tile_per_row is the total number of tiles in each row
+    int i, j;
+    for (i = 0; i < ROWS; i++){                // ROWS is the total number of rows
+        for(j = 0; j < COLS; j++){            // tile_per_row is the total number of tiles in each row
             short int TILE_COLOR = (visibleGrid[i][j] == BLACK) ? PIANO_TILE_COLOR : BLANK_TILE_COLOR;
             // Next key to be pressed in green colour
             TILE_COLOR = ((i == ROWS - 1) && j == correctColumn) ? 0x23E1 : TILE_COLOR;
@@ -309,8 +314,9 @@ int keyPressed(){
 }
 
 void resetGame() {
-    for(int i = 0; i < ROWS; i++){
-        for(int j = 0; j < COLS; j++){
+    int i, j;
+    for(i = 0; i < ROWS; i++){
+        for(j = 0; j < COLS; j++){
             visibleGrid[i][j] = WHITE;
         }
     }
@@ -333,13 +339,14 @@ void HEXScoreUpdate() {
                         0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111};
 
     // Extracting HEX digits into HEX array
-    for(int i = 0; i < 4; i++) {
+    int i;
+    for(i = 0; i < 4; i++) {
         HEXDigits[i] = temp % 10;
         temp = temp / 10;
     }
 
     // Determining HEX register value using bit codes
-    for(int i = 1; i >= 0; i--) {
+    for(i = 1; i >= 0; i--) {
         HEXValue *= 256; // Logical shift left by 8 bits
         HEXValue += HEXCodes[HEXDigits[i]];
     }
@@ -383,7 +390,8 @@ void HEXTimerUpdate() {
     }
 
     // Determining HEX register value using bit codes
-    for(int i = 3; i >= 0; i--) {
+    int i;
+    for(i = 3; i >= 0; i--) {
         HEXValue *= 256; // Logical shift left by 8 bits
         HEXValue += HEXCodes[timer[i]];
     }
@@ -430,8 +438,8 @@ void draw_line(int x0, int y0, int x1, int y1, short int color) {
     } else {
         y_step = -1;
     }
-
-    for(int x = x0; x <= x1; x++) {
+    int x;
+    for(x = x0; x <= x1; x++) {
         if(is_steep) {
             plot_pixel(y, x, color);
         } else {
