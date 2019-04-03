@@ -38,6 +38,8 @@ void initializeScreen();
 void updateScreen();
 void clear_screen();
 
+void displayChar(int x, int y, char c);
+
 // setting grid to display,
 void generateRow(int rowNumber);
 void generateGrid();
@@ -70,7 +72,9 @@ int main(void){
     volatile int* keys_ptr = (int*) 0xFF20005C;
 
 x:  score = 0;
-    // What are these functions doing ?????????
+    // Must clear front display buffer and its back buffer
+    // and also set globalPtr to pixel_buffer_start
+    // do that in initialize screen
     initializeScreen();
     updateScreen();
     // initialize grid
@@ -80,6 +84,8 @@ x:  score = 0;
         updateGrid();
         drawGrid();
         updateScreen();
+        HEXUpdate();
+        displayChar(0, 0, 'V');
 
         for(int i = 0; i < 4; i++) {
             timer[i] = 0;
@@ -392,6 +398,12 @@ void HEXTimerUpdate() {
     *x = *y;
     *y = temp;
  }
+
+void displayChar(int x, int y, char c) {
+    // VGA character buffer
+    volatile char * character_buffer = (char *) (0x09000000 + (y<<7) + x);
+    *character_buffer = c;
+}
 
 // Function to draw line
 void draw_line(int x0, int y0, int x1, int y1, short int color) {
