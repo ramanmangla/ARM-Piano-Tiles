@@ -27,6 +27,7 @@ int score;                                                      // score that wi
 int visibleGrid[ROWS][COLS];                 //
 int correctColumn;  // Store the next column key to press in the game
 int score;  // Stroe user's score
+int timer[4];
 
 // Display related functions:
 void wait_for_vsync();
@@ -48,7 +49,8 @@ int keyPressed();
 
 // Reset game
 void resetGame();
-void HEXUpdate();
+void HEXScoreUpdate();
+void HEXTimerUpdate();
 
 int main(void){
     // game starts with start page which says "press any key to start"
@@ -78,9 +80,26 @@ x:  score = 0;
         updateGrid();
         drawGrid();
         updateScreen();
-        HEXUpdate();
 
-        while((*keys_ptr) == 0x0);
+        for(int i = 0; i < 4; i++) {
+            timer[i] = 0;
+        }
+
+        // Setting hardware timer for 0.01s
+        volatile int* timer_ptr = (int*) 0xFFFEC600;
+        *timer_ptr = 2000000;
+        volatile int* timer_settings_ptr = (int*) 0xFFFEC608;
+        *timer_settings_ptr = 3;
+
+        while((*keys_ptr) == 0x0) {
+            volatile int* timer_value_ptr = (int*) 0xFFFEC60C;
+
+            if(*timer_value_ptr != 0) {
+                *timer_value_ptr = 1;
+                HEXTimerUpdate();
+                HEXScoreUpdate();
+            }           
+        }
         
         int response = keyPressed();
 
@@ -294,9 +313,9 @@ void resetGame() {
 }
 
 // Function to display score on HEX 3-0
-void HEXUpdate() {
+void HEXScoreUpdate() {
     // HEX 3-0 location pointer
-    int* HEX3_0Ptr = (int*) 0xFF200020;
+    int* HEX5_4Ptr = (int*) 0xFF200030;
     // HEX Register Value to be stored at HEX 3-0 location
     int HEXValue = 0;
     // Temporary score variable
@@ -314,9 +333,53 @@ void HEXUpdate() {
     }
 
     // Determining HEX register value using bit codes
-    for(int i = 3; i >= 0; i--) {
+    for(int i = 1; i >= 0; i--) {
         HEXValue *= 256; // Logical shift left by 8 bits
         HEXValue += HEXCodes[HEXDigits[i]];
+    }
+
+    // Set HEX 3-0 value
+    (*HEX5_4Ptr) = HEXValue;
+ }
+
+ // Function to display timer on HEX 3-0
+void HEXTimerUpdate() {
+    // HEX 3-0 location pointer
+    int* HEX3_0Ptr = (int*) 0xFF200020;
+    // HEX Register Value to be stored at HEX 3-0 location
+    int HEXValue = 0;
+    // HEX Codes for decimal digits
+    int HEXCodes[10] = {0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110,
+                        0b01101101, 0b01111101, 0b00000111, 0b01111111, 0b01100111};
+
+    timer[0] += 1;
+
+    if(timer[0] == 10) {
+        timer[0] = 0;
+        timer[1] += 1;
+    }
+
+    if(timer[1] == 10) {
+        timer[1] = 0;
+        timer[2] += 1;
+    }
+
+    if(timer[2] == 10) {
+        timer[2] = 0;
+        timer[3] += 1;
+    }
+
+    if(timer[3] == 6) {
+        timer[3] = 0;
+        timer[2] = 0;
+        timer[1] = 0;
+        timer[0] = 0;
+    }
+
+    // Determining HEX register value using bit codes
+    for(int i = 3; i >= 0; i--) {
+        HEXValue *= 256; // Logical shift left by 8 bits
+        HEXValue += HEXCodes[timer[i]];
     }
 
     // Set HEX 3-0 value
