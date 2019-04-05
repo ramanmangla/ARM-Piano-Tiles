@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+extern short OPENING_SCREEN[240][320];
+    
 const short int PIANO_TILE_COLOR = 0x0821;                    // black
 const short int BLANK_TILE_COLOR = 0xFFFF;                    // white
 const short int CURRENT_TILE_COLOR = 0x23E1;                  // green
@@ -65,6 +67,8 @@ int keyPressed();
 void resetGame();
 void HEXScoreUpdate();
 void HEXTimerUpdate();
+void drawOpeningScreen();
+
 
 //timer related functions:
 void initializeTimer(int loadValue);
@@ -119,12 +123,11 @@ x:  //loadScreen();
         displayChar(0, 0, 'V');
         drawOpeningScreen();
 
-        int i;
-        for(i = 0; i < 4; i++) {
-            for(int i = 0; i < 4; i++) {
-                timer[i] = 0;
-            }
-        }
+        // for(i = 0; i < 4; i++) {
+        //     for(int i = 0; i < 4; i++) {
+        //         timer[i] = 0;
+        //     }
+        // }
 
         // Setting hardware timer for 0.01s
         volatile int* timer_ptr = (int*) 0xFFFEC600;
@@ -361,7 +364,6 @@ int keyPressed(){
 }
 
 void drawOpeningScreen() {
-    extern short OPENING_SCREEN[240][320];
     volatile short * pixelbuf = 0xc8000000;
     int i, j;
 
