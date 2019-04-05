@@ -115,11 +115,25 @@ x:  //loadScreen();
         
         HEXScoreUpdate();
         HEXTimerUpdate();
-        
-//        int i;
-//        for(i = 0; i < 4; i++) {
-//            timer[i] = 0;
-//        }
+
+        displayChar(0, 0, 'V');
+        drawOpeningScreen();
+
+        int i;
+        for(i = 0; i < 4; i++) {
+            for(int i = 0; i < 4; i++) {
+                timer[i] = 0;
+            }
+        }
+
+        // Setting hardware timer for 0.01s
+        volatile int* timer_ptr = (int*) 0xFFFEC600;
+        *timer_ptr = 2000000;
+        volatile int* timer_settings_ptr = (int*) 0xFFFEC608;
+        *timer_settings_ptr = 3;
+
+        while((*keys_ptr) == 0x0) {
+            volatile int* timer_value_ptr = (int*) 0xFFFEC60C;
 
 //        initializeTimer(2000000);
 //        startTimer();
@@ -343,6 +357,18 @@ int keyPressed(){
         // If wrong key or illegal key combination pressed
         //gameOver();
         return GAME_OVER;
+    }
+}
+
+void drawOpeningScreen() {
+    extern short OPENING_SCREEN[240][320];
+    volatile short * pixelbuf = 0xc8000000;
+    int i, j;
+
+    for (i=0; i<240; i++) {
+        for (j=0; j<320; j++) {
+            *(pixelbuf + (j<<0) + (i<<9)) = OPENING_SCREEN[i][j];
+        }
     }
 }
 
