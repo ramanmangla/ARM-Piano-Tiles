@@ -6,12 +6,16 @@
     
 #define TILE_WIDTH  50      // think of this  -> technically make it 320/3. ~~ 106pixels
 #define TILE_HEIGHT (RESOLUTION_Y / ROWS)      // 4 rows per display
-
+#define FRACTION_TILES_SKIPPING 3              // used for animation
 // define black as 1, white as 0
 #define BLACK 1
 #define WHITE 0
 
 // generates 0, 1, 2, ... COLS-1 -> left ->center -> right col
+
+#define GAME_OVER -1
+#define LOAD_SCREEN 0
+#define GAME_RUNNING 1
 
 #include <stdlib.h>
 #include <math.h>
@@ -20,23 +24,28 @@
 
 const short int PIANO_TILE_COLOR = 0x0821;                    // black
 const short int BLANK_TILE_COLOR = 0xFFFF;                    // white
-volatile int pixel_buffer_start;                               // global variable
+const short int CURRENT_TILE_COLOR = 0x23E1;                  // green
+volatile int pixel_buffer_start;                               // global variable used for display
 
 //bool gameOver;                                                  // global variable corresponding to the state of the game
 int score;                                                      // score that will be displayed on VGA
-int visibleGrid[ROWS][COLS];                 //
+int visibleGrid[ROWS][COLS];                 // For animation purposes, not all rows will be displayed.
+int gridForDrawing[ROWS*FRACTION_TILES_SKIPPING][COLS];            // for displaying, top row of visibleGrid is never used
 int correctColumn;  // Store the next column key to press in the game
-int score;  // Stroe user's score
+int score;  // Store user's score
 int timer[4];
+int offset;
 
 // Display related functions:
 void wait_for_vsync();
 void plot_pixel(int x, int y, short int line_color);
 void draw_line(int x0, int y0, int x1, int y1, short int color);
 
+void loadScreen();
 void initializeScreen();
 void updateScreen();
 void clear_screen();
+void gameOver();
 
 void displayChar(int x, int y, char c);
 
@@ -46,6 +55,9 @@ void generateGrid();
 void drawGrid();
 void updateGrid();
 
+void animateGridForDrawing();
+void setVisiblieGridToGridForDrawing();
+
 // access data from KEYs
 int keyPressed();
 
@@ -53,6 +65,12 @@ int keyPressed();
 void resetGame();
 void HEXScoreUpdate();
 void HEXTimerUpdate();
+
+//timer related functions:
+void initializeTimer(int loadValue);
+void startTimer();
+bool timeUp();
+void resetTimer();
 
 int main(void){
     // game starts with start page which says "press any key to start"
@@ -71,7 +89,12 @@ int main(void){
     // must ENSURE that when grid is updated, it looks smooth
     volatile int* keys_ptr = (int*) 0xFF20005C;
 
-x:  score = 0;
+x:  //loadScreen();
+//    while((*keys_ptr) == 0x0){
+//        // while no key is pressed, dont start game
+//    }
+    score = 0;
+    //gameState = 0; // reset gameState (take back to start screen)
     // Must clear front display buffer and its back buffer
     // and also set globalPtr to pixel_buffer_start
     // do that in initialize screen
@@ -80,43 +103,58 @@ x:  score = 0;
     // initialize grid
     generateGrid();
  
-    while(1) {
-        updateGrid();
-        drawGrid();
-        updateScreen();
+    int response = GAME_RUNNING;
+    
+    while(response == GAME_RUNNING) {
+        
+        
+        offset = 0;
+        response = GAME_RUNNING;
+        setVisiblieGridToGridForDrawing();
+        
+        
         HEXScoreUpdate();
         HEXTimerUpdate();
-        displayChar(0, 0, 'V');
-        int i;
-        for(i = 0; i < 4; i++) {
-            timer[i] = 0;
-        }
+        
+//        int i;
+//        for(i = 0; i < 4; i++) {
+//            timer[i] = 0;
+//        }
 
-        // Setting hardware timer for 0.01s
-        volatile int* timer_ptr = (int*) 0xFFFEC600;
-        *timer_ptr = 2000000;
-        volatile int* timer_settings_ptr = (int*) 0xFFFEC608;
-        *timer_settings_ptr = 3;
+//        initializeTimer(2000000);
+//        startTimer();
+        
+        while(offset != FRACTION_TILES_SKIPPING){
+            drawGrid();
+            animateGridForDrawing();
+            updateScreen();
+            if((*keys_ptr) == 0x0){
+//                if(timeUp()) {
+//                    resetTimer();
+//                    HEXTimerUpdate();
+//                }
+            }
+            
+            else{
+                response = keyPressed();
+                if(response == LOAD_SCREEN) {
+                    goto x;
+                } else if(response == GAME_OVER) {
+                    //gameOverScreen();
+                    break;
+                }
 
-        while((*keys_ptr) == 0x0) {
-            volatile int* timer_value_ptr = (int*) 0xFFFEC60C;
-
-            if(*timer_value_ptr != 0) {
-                *timer_value_ptr = 1;
-                HEXTimerUpdate();
-                HEXScoreUpdate();
-            }           
+            }
+            offset++;
         }
         
-        int response = keyPressed();
 
-        if(response == 0) {
-            goto x;
-        } else if(response == -1) {
-            break;
-        }
+        
+        updateGrid();
+
+//
+        // if it's 1, then keep looping
     }
-    //wait_for_vsync();
 }
 
 void initializeScreen(){
@@ -172,7 +210,7 @@ void drawTile(int x, int y, short int line_color){
     // x and y define the TOP-LEFT corner of the tile
     int i, j;
     for(i = 0; i < TILE_WIDTH; i++)
-        for (j = 0; j < TILE_HEIGHT; j++)
+        for (j = 0; j < TILE_HEIGHT/FRACTION_TILES_SKIPPING; j++)
             plot_pixel(x+i, y+j, line_color);
 }
 
@@ -196,7 +234,7 @@ void generateGrid(){
 
     // Get correct column key to press
     for(j = 0; j < COLS; j++) {
-        if(visibleGrid[ROWS-1][j] == BLACK) {
+        if(gridForDrawing[(ROWS*FRACTION_TILES_SKIPPING)-offset][j] == BLACK) {
             correctColumn = j;
             break;
         }
@@ -220,8 +258,9 @@ void updateGrid(){
     // generate row for first row and place
 
     // Get correct column key to press
+    // shouldn't have this function here OR just do it in the first for loop
     for(j = 0; j < COLS; j++) {
-        if(visibleGrid[ROWS-1][j] == BLACK) {
+        if(gridForDrawing[(ROWS*FRACTION_TILES_SKIPPING)-offset][j] == BLACK) {
             correctColumn = j;
             break;
         }
@@ -237,29 +276,24 @@ void drawGrid(){
     draw_line(offset_x + COLS*TILE_WIDTH + 1, 0, offset_x + COLS*TILE_WIDTH + 1, RESOLUTION_Y - 1, 0x0000);
     draw_line(offset_x + COLS*TILE_WIDTH, 0, offset_x + COLS*TILE_WIDTH, RESOLUTION_Y - 1, 0x0000);
     int i, j;
-    for (i = 0; i < ROWS; i++){                // ROWS is the total number of rows
+    
+    int startingIndex;
+    for(startingIndex = 0; startingIndex < (ROWS)*FRACTION_TILES_SKIPPING; startingIndex++){
+        i = startingIndex/(FRACTION_TILES_SKIPPING);
         for(j = 0; j < COLS; j++){            // tile_per_row is the total number of tiles in each row
-            short int TILE_COLOR = (visibleGrid[i][j] == BLACK) ? PIANO_TILE_COLOR : BLANK_TILE_COLOR;
+            short int TILE_COLOR = (gridForDrawing[startingIndex][j] == BLACK) ? PIANO_TILE_COLOR : BLANK_TILE_COLOR;
             // Next key to be pressed in green colour
-            TILE_COLOR = ((i == ROWS - 1) && j == correctColumn) ? 0x23E1 : TILE_COLOR;
-
-            drawTile(j*TILE_WIDTH + offset_x, i*TILE_HEIGHT, TILE_COLOR);
+            TILE_COLOR = ((startingIndex-offset >= (ROWS-1)*FRACTION_TILES_SKIPPING) && j == correctColumn) ? CURRENT_TILE_COLOR : TILE_COLOR;
+            
+            drawTile(j*TILE_WIDTH + offset_x, (i*TILE_HEIGHT)+(startingIndex%FRACTION_TILES_SKIPPING)*(TILE_HEIGHT/FRACTION_TILES_SKIPPING), TILE_COLOR);
             // Vertical grid line
             draw_line(offset_x + j*TILE_WIDTH, 0, offset_x + j*TILE_WIDTH, RESOLUTION_Y - 1, 0x0000);
         }
-
-        // Horizontal grid line
-        draw_line(offset_x, i*TILE_HEIGHT, COLS*TILE_WIDTH + offset_x, i*TILE_HEIGHT, 0x0000);
+        int y_placement = (i*TILE_HEIGHT)+(offset)*(TILE_HEIGHT/FRACTION_TILES_SKIPPING);
+        draw_line(offset_x, y_placement, COLS*TILE_WIDTH + offset_x, y_placement, 0x0000);
     }
-
-    // Last vertical grid line
     draw_line(offset_x - 1, 0, offset_x - 1, RESOLUTION_Y - 1, 0x0000);
 }
-// bool checkValidMove(int key_value){
-//     if(visibleGrid[0][key_value] == BLACK)            // hit the right key
-//         return true;
-//     else return false;
-// }
 
 // need a function that places a high value in the timer initially
 // this value is used to move the screen upwards
@@ -300,16 +334,15 @@ int keyPressed(){
     
     if(key == 0) {
         // If reset key pressed
-        resetGame();
-        return 0;
+        return LOAD_SCREEN;
     } else if(key == correctColumn + 1) {
         // If correct key pressed
         score += 1;
-        return 1;
+        return GAME_RUNNING;
     } else {
         // If wrong key or illegal key combination pressed
         //gameOver();
-        return -1;
+        return GAME_OVER;
     }
 }
 
@@ -451,6 +484,53 @@ void draw_line(int x0, int y0, int x1, int y1, short int color) {
         if(error >= 0) {
             y = y + y_step;
             error -= deltax;
+        }
+    }
+}
+
+void initializeTimer(int loadValue){
+    // Setting hardware timer for 0.01s
+    // accessing load register value of private timer on ARM
+    volatile int* timer_ptr = (int*) 0xFFFEC600;
+    *timer_ptr = loadValue;
+}
+
+void startTimer(){
+    // Setting control register
+    volatile int* timer_settings_ptr = (int*) 0xFFFEC608;
+    // setting auto-load and enable
+    *timer_settings_ptr = 3;
+}
+
+bool timeUp(){
+    volatile int* timer_settings_ptr = (int*) 0xFFFEC60C;
+    return (1 == (*timer_settings_ptr & 1));
+}
+
+void resetTimer(){
+    volatile int* timer_settings_ptr = (int*) 0xFFFEC60C;
+    *timer_settings_ptr = 1;
+}
+
+void setVisiblieGridToGridForDrawing(){
+    int i,j;
+    //always ignore the top-most row while setting it
+    // (i*TILE_HEIGHT)+(startingIndex%(FRACTION_TILES_SKIPPING))*(TILE_HEIGHT/FRACTION_TILES_SKIPPING)
+    for(i = 0; i < (ROWS)*FRACTION_TILES_SKIPPING; i++){
+        for(j = 0; j < COLS; j++){
+            // shift everything one row below
+            gridForDrawing[i][j] = visibleGrid[(i/(FRACTION_TILES_SKIPPING))][j];
+        }
+    }
+}
+
+void animateGridForDrawing(){
+    // displace everything by FRACTION_TILES_SKIPPING
+    int i,j;
+    for(i = ((ROWS)*FRACTION_TILES_SKIPPING)-2; i > 0; i--){
+        for(j = 0; j < COLS; j++){
+            // shift everything one row below
+            gridForDrawing[i+1][j] = gridForDrawing[i][j];
         }
     }
 }
