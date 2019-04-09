@@ -26,7 +26,8 @@
 #include <time.h>
 
 extern short OPENING_SCREEN[240][320];  // Game Opening Image
-    
+extern short END_SCREEN[240][320];  // Game Ending Image
+
 const short int PIANO_TILE_COLOR = 0x31A6;  // #333333 (dark grey)
 const short int BLANK_TILE_COLOR = 0xFFFF;  // #FFFFFF (White)
 const short int CURRENT_TILE_COLOR = 0xD2AF; // #D2527F (Pink)
@@ -93,6 +94,7 @@ int main() {
     while(gameOn) {
         score = 0;
         offset = 0;
+        gameOn = true;
 
         // Reset HEX Diplay
         HEXScoreUpdate();
@@ -156,10 +158,23 @@ int main() {
             *(hardwareTimePtr + 3) = *(hardwareTimePtr + 3);
             timerStart -= 1000000;
         }
-    }
 
-    // Game Over screen
-    drawEndScreen();
+        if(!gameOn) {
+            // Game Over screen
+            drawEndScreen();
+
+            // Check if user wants to play again
+            volatile int* keysEdgePtr = (int*) 0xFF20005C;
+
+            while((*keysEdgePtr) == 0);
+
+            if((*keysEdgePtr) == 1) {
+                gameOn = true;
+            }
+            
+            (*keysEdgePtr) = (*keysEdgePtr);
+        }
+    }
 }
 
 void waitForGameStart() {
@@ -296,7 +311,7 @@ void drawEndScreen() {
     for (i=0; i<240; i++) {
         for (j=0; j<320; j++) {
             plotPixel(j, i, 0x0);
-           // *(pixelbuf + (j<<0) + (i<<9)) = OPENING_SCREEN[i][j];
+           *(pixelbuf + (j<<0) + (i<<9)) = END_SCREEN[i][j];
        }
     }
 
