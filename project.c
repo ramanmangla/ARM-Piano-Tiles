@@ -107,6 +107,8 @@ int main() {
         waitForGameStart();
 
         clearScreen();
+        updateScreen();
+        clearScreen();
 
         // An instance of a game
         while(true) {
@@ -141,13 +143,14 @@ int main() {
 
             // Timer for delay between row shifts
             volatile int* hardwareTimePtr = (int*) 0xFFFEC600;
-            // Enable counter
-            *(hardwareTimePtr + 2) = 1;
+            // Enable counter and automatic reload
+            *(hardwareTimePtr + 2) = 3;
             // Loading 50 million for a 200MHz timer
             // (initially 0.375s per fractional row)
             (*hardwareTimePtr) = 75000000;
 
-            while(*(hardwareTimePtr + 3) & 0x1 != 1);
+            while(*(hardwareTimePtr + 3) == 0);
+            // printf("%x\n", hardwareTimePtr + 3);
 
             *(hardwareTimePtr + 3) = *(hardwareTimePtr + 3);
         }
@@ -174,24 +177,18 @@ void waitForGameStart() {
 
 void initializeScreen(){
     volatile int * pixel_ctrl_ptr = (int *)0xFF203020;
-    // declare other variables(not shown)
-    // initialize location and direction of rectangles(not shown)
     
-    /* set front pixel buffer to start of FPGA On-chip memory */
-    *(pixel_ctrl_ptr + 1) = 0xC8000000; // first store the address in the
-    // back buffer
-    /* now, swap the front/back buffers, to set the front buffer location */
+    *(pixel_ctrl_ptr + 1) = 0xC8000000;
+
     waitForVsync();
-    /* initialize a pointer to the pixel buffer, used by drawing functions */
+
     pixel_buffer_start = *pixel_ctrl_ptr;
     
-    clearScreen(); // pixel_buffer_start points to the pixel buffer
-    /* set back pixel buffer to start of SDRAM memory */
+    clearScreen();
+
     *(pixel_ctrl_ptr + 1) = 0xC0000000;
     
-    pixel_buffer_start = *(pixel_ctrl_ptr+1); // we draw on the back buffer
-    clearScreen(); // pixel_buffer_start points to the pixel buffer
-
+    pixel_buffer_start = *(pixel_ctrl_ptr + 1); // we draw on the back buffer
 }
 
 void updateScreen(){
@@ -201,14 +198,12 @@ void updateScreen(){
 }
 
 void waitForVsync(){
-    // place 1 in front buffer (to start swap)
     volatile int* pixel_ctrl_ptr = (int*)0xFF203020; // status register
-    int registerValue;
-    *(pixel_ctrl_ptr) = 1;  // swaps the two registers -> what happens to the address stored in the register
-    registerValue = *(pixel_ctrl_ptr+3);
-    while((registerValue & 0x01) != 0){
-        registerValue = *(pixel_ctrl_ptr+3);                // AND it with 1 to obtain the last bit
-    }
+    volatile int* statusRegisterPtr = pixel_ctrl_ptr + 3;
+
+    *(pixel_ctrl_ptr) = 1;
+
+    while((*statusRegisterPtr & 0x1) != 0);
 }
 
 void plotPixel(int x, int y, short int line_color){
@@ -277,14 +272,15 @@ void drawLine(int x0, int y0, int x1, int y1, short int color) {
 }
 
 void drawOpeningScreen() {
-   volatile short * pixelbuf = pixel_buffer_start;
+   volatile short* pixelbuf = pixel_buffer_start;
     int i, j;
 
     for (i=0; i<240; i++) {
         for (j=0; j<320; j++) {
             // plotPixel(j, i, 0xE000);
-            plotPixel(j, i, OPENING_SCREEN[i][j]);
-           // *(pixelbuf + (j<<0) + (i<<9)) = OPENING_SCREEN[i][j];
+            // plotPixel(j, i, OPENING_SCREEN[i][j]);
+           *(pixelbuf + (j<<0) + (i<<9)) = OPENING_SCREEN[i][j];
+            // *(pixelbuf + (j<<0) + (i<<9)) = 0xE000;
        }
     }
 
@@ -387,6 +383,7 @@ void drawDrawingGrid(){
     }
 
     drawLine(offset_x - 1, 0, offset_x - 1, RESOLUTION_Y - 1, 0x0000);
+    updateScreen();
 }
 
 // Function to determine game state according to key pressed
@@ -571,5 +568,5 @@ void animateGridForDrawing(){
         }
     }
 
-    updateScreen();
+    // updateScreen();
 }
