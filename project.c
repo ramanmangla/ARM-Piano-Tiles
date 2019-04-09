@@ -80,6 +80,7 @@ void resetTimer();
 void waitForGameStart();
 
 int main() {
+    int timerStart = 75000000;
     bool gameOn = true;
     int response; 
     // Seed random number generator
@@ -147,12 +148,13 @@ int main() {
             *(hardwareTimePtr + 2) = 3;
             // Loading 50 million for a 200MHz timer
             // (initially 0.375s per fractional row)
-            (*hardwareTimePtr) = 75000000;
+            (*hardwareTimePtr) = timerStart;
 
             while(*(hardwareTimePtr + 3) == 0);
             // printf("%x\n", hardwareTimePtr + 3);
 
             *(hardwareTimePtr + 3) = *(hardwareTimePtr + 3);
+            timerStart -= 1000000;
         }
     }
 
