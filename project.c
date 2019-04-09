@@ -60,6 +60,7 @@ void updateGameGrid();
 
 void animateGridForDrawing();
 void updateDrawingGrid();
+void drawEndScreen();
 
 // access data from KEYs
 int keyPressed();
@@ -127,6 +128,8 @@ int main() {
 
                 offset = 0;
 
+                // Play note?
+
                 updateGameGrid();
                 updateDrawingGrid();
             }
@@ -136,10 +139,22 @@ int main() {
 
             offset += 1;
 
+            // Timer for delay between row shifts
+            volatile int* hardwareTimePtr = (int*) 0xFFFEC600;
+            // Enable counter
+            *(hardwareTimePtr + 2) = 1;
+            // Loading 50 million for a 200MHz timer
+            // (initially 0.375s per fractional row)
+            (*hardwareTimePtr) = 75000000;
+
+            while(*(hardwareTimePtr + 3) & 0x1 != 1);
+
+            *(hardwareTimePtr + 3) = *(hardwareTimePtr + 3);
         }
     }
 
     // Game Over screen
+    drawEndScreen();
 }
 
 void waitForGameStart() {
@@ -268,6 +283,20 @@ void drawOpeningScreen() {
     for (i=0; i<240; i++) {
         for (j=0; j<320; j++) {
             plotPixel(j, i, 0xE000);
+           // *(pixelbuf + (j<<0) + (i<<9)) = OPENING_SCREEN[i][j];
+       }
+    }
+
+    updateScreen();
+}
+
+void drawEndScreen() {
+   volatile short * pixelbuf = pixel_buffer_start;
+    int i, j;
+
+    for (i=0; i<240; i++) {
+        for (j=0; j<320; j++) {
+            plotPixel(j, i, 0x0);
            // *(pixelbuf + (j<<0) + (i<<9)) = OPENING_SCREEN[i][j];
        }
     }
