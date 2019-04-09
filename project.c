@@ -282,7 +282,8 @@ void drawOpeningScreen() {
 
     for (i=0; i<240; i++) {
         for (j=0; j<320; j++) {
-            plotPixel(j, i, 0xE000);
+            // plotPixel(j, i, 0xE000);
+            plotPixel(j, i, OPENING_SCREEN[i][j]);
            // *(pixelbuf + (j<<0) + (i<<9)) = OPENING_SCREEN[i][j];
        }
     }
