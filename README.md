@@ -10,6 +10,7 @@ Press as many black piano tiles as possible while keeping up with the piano scro
 3. Each correct key awards a point and a wrong key press ends the game
 
 ## I/O
-FPGA KEYS (Input)
-VGA Display (Output)
-HEX Display (Output)
+* FPGA KEYS (Input)
+* VGA Display (Output)
+* HEX Display (Output)
+
