@@ -1,3 +1,11 @@
+// ARM Piano Tiles Game for De1 SoC FPGA Board
+// Keys - Input
+// HEX, VGA - Output
+// Main C program file
+
+// Include Cannon Song Data
+#include "song.c"
+
 #define RESOLUTION_X 320
 #define RESOLUTION_Y 240
 
@@ -28,16 +36,18 @@
 extern short OPENING_SCREEN[240][320];  // Game Opening Image
 extern short END_SCREEN[240][320];  // Game Ending Image
 
+const int songSize = sizeof(data)/sizeof(data[0]);
 const short int PIANO_TILE_COLOR = 0x31A6;  // #333333 (dark grey)
 const short int BLANK_TILE_COLOR = 0xFFFF;  // #FFFFFF (White)
 const short int CURRENT_TILE_COLOR = 0xD2AF; // #D2527F (Pink)
-volatile int pixel_buffer_start;                               // global variable used for display
+volatile int pixel_buffer_start;                         // global variable used for display
 
 int score;  // Game score on HEX
 int gameGrid[ROWS][COLS];   // Game tile grid
 int gridForDrawing[ROWS * FRACTION_TILES_SKIPPING][COLS];   // Game animated drawing grid
 int correctColumn;  // Next column key to press in the game
 int offset;
+int audio_counter = 0;
 
 // Display related functions:
 void waitForVsync();
@@ -50,7 +60,7 @@ void initializeScreen();
 void updateScreen();
 void clearScreen();
 void gameOver();
-
+void playSong();
 void displayChar(int x, int y, char c);
 
 // setting grid to display,
@@ -81,7 +91,7 @@ void resetTimer();
 void waitForGameStart();
 
 int main() {
-    int timerStart = 75000000;
+    int audio_counter = 0;
     bool gameOn = true;
     int response; 
     // Seed random number generator
@@ -94,6 +104,8 @@ int main() {
     while(gameOn) {
         score = 0;
         offset = 0;
+        audio_counter = 0;
+        int timerStart = 75000000;
         gameOn = true;
 
         // Reset HEX Diplay
@@ -151,12 +163,21 @@ int main() {
             // Loading 50 million for a 200MHz timer
             // (initially 0.375s per fractional row)
             (*hardwareTimePtr) = timerStart;
-
-            while(*(hardwareTimePtr + 3) == 0);
-            // printf("%x\n", hardwareTimePtr + 3);
+			unsigned fifospace;
+			volatile int* audio_ptr = (int*)0xFF203040;
+            while(*(hardwareTimePtr + 3) == 0){
+            	fifospace = *(audio_ptr+1); // read the audio port fifospace register
+                if ( (fifospace & 0x00FF0000) > 0 && (fifospace & 0xFF0000000) >0){
+                    int sample = 500000 * data[audio_counter];
+                    *(audio_ptr + 2) = sample;        // Write to both channels
+                    *(audio_ptr + 3) = sample;
+                    audio_counter = (audio_counter == NUM_ELEMENTS) ? 0: audio_counter + 1;
+                    fifospace = *(audio_ptr+1);
+                }
+            }
 
             *(hardwareTimePtr + 3) = *(hardwareTimePtr + 3);
-            timerStart -= 1000000;
+            timerStart -= 500000;
         }
 
         if(!gameOn) {
@@ -165,12 +186,12 @@ int main() {
 
             // Check if user wants to play again
             volatile int* keysEdgePtr = (int*) 0xFF20005C;
-
+            (*keysEdgePtr) = (*keysEdgePtr);            
             while((*keysEdgePtr) == 0);
 
-            if((*keysEdgePtr) == 1) {
+         //   if((*keysEdgePtr) == 1) {
                 gameOn = true;
-            }
+          //  }
             
             (*keysEdgePtr) = (*keysEdgePtr);
         }
@@ -179,9 +200,19 @@ int main() {
 
 void waitForGameStart() {
     volatile int* keysEdgePtr = (int*) 0xFF20005C;
-
     while(true) {
-        while((*keysEdgePtr) == 0);
+		unsigned fifospace;
+		volatile int* audio_ptr = (int*)0xFF203040;
+        while((*keysEdgePtr) == 0){
+                fifospace = *(audio_ptr+1); // read the audio port fifospace register
+                if ( (fifospace & 0x00FF0000) > 0 && (fifospace & 0xFF0000000) >0){
+                    int sample = 500000 * data[audio_counter];
+                    *(audio_ptr + 2) = sample;        // Write to both channels
+                    *(audio_ptr + 3) = sample;
+                    audio_counter = (audio_counter == NUM_ELEMENTS) ? 0: audio_counter + 1;
+                    fifospace = *(audio_ptr+1);
+                }
+            }     
 
         if((*keysEdgePtr) == 1) {
             (*keysEdgePtr) = (*keysEdgePtr);
@@ -586,4 +617,22 @@ void animateGridForDrawing(){
     }
 
     // updateScreen();
+}
+
+
+void playSong(){
+//    unsigned fifospace;
+//    volatile int audio_ptr = (int)0xFF203040;
+//    int audio_counter = 0;
+//
+//    while(1){
+//        fifospace = *(audio_ptr+1); // read the audio port fifospace register
+//        if ( (fifospace & 0x00FF0000) > 0 && (fifospace & 0xFF0000000) >0){
+//            int sample = 100000*data[audio_counter];
+//            *(audio_ptr + 2) = sample;        // Write to both channels
+//            *(audio_ptr + 3) = sample;
+//            audio_counter = (audio_counter == NUM_ELEMENTS) ? 0: audio_counter + 1;
+//            fifospace = *(audio_ptr+1);
+//        }
+//    }
 }
