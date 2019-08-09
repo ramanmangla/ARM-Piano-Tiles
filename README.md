@@ -14,3 +14,4 @@ Press as many black piano tiles as possible while keeping up with the piano scro
 * VGA Display (Output)
 * HEX Display (Output)
 
+![Main Screen Image](Main-Screen.jpg)
